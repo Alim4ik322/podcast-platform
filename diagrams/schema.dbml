@@ -1,0 +1,67 @@
+erDiagram
+    USERS ||--o{ PODCASTS : "создает (author_id)"
+    USERS ||--o{ SUBSCRIPTIONS : "оформляет (user_id)"
+    USERS ||--o{ LISTENING_LOGS : "генерирует (user_id)"
+    CATEGORIES ||--o{ PODCASTS : "классифицирует (category_id)"
+    PODCASTS ||--o{ EPISODES : "содержит (podcast_id)"
+    PODCASTS ||--o{ SUBSCRIPTIONS : "имеет (podcast_id)"
+    EPISODES ||--o{ LISTENING_LOGS : "прослушивается (episode_id)"
+
+    USERS {
+        uuid id PK "Первичный ключ"
+        varchar(255) email UK "NOT NULL, UNIQUE"
+        varchar(255) password_hash "NOT NULL"
+        varchar(100) username "NOT NULL"
+        varchar(20) role "NOT NULL, CHECK (listener, creator, admin)"
+        timestamptz created_at "NOT NULL, DEFAULT now()"
+    }
+
+    CATEGORIES {
+        int id PK "Первичный ключ"
+        varchar(100) name UK "NOT NULL, UNIQUE"
+        varchar(100) slug UK "NOT NULL, UNIQUE"
+    }
+
+    PODCASTS {
+        uuid id PK "Первичный ключ"
+        uuid author_id FK "NOT NULL -> users(id)"
+        int category_id FK "NOT NULL -> categories(id)"
+        varchar(255) title "NOT NULL"
+        text description "Описание шоу"
+        varchar(512) cover_url "Ссылка на обложку в S3"
+        varchar(255) rss_slug UK "NOT NULL, UNIQUE (путь для RSS)"
+        varchar(10) language "NOT NULL, DEFAULT 'ru'"
+        timestamptz created_at "NOT NULL, DEFAULT now()"
+    }
+
+    EPISODES {
+        uuid id PK "Первичный ключ"
+        uuid podcast_id FK "NOT NULL -> podcasts(id)"
+        varchar(255) title "NOT NULL"
+        text show_notes "Описание и таймкоды выпуска"
+        varchar(512) audio_url "NOT NULL (ключ файла в S3)"
+        int duration_sec "NOT NULL, CHECK (duration_sec > 0)"
+        bigint file_size_bytes "NOT NULL, CHECK (file_size_bytes > 0)"
+        int episode_number "NOT NULL, CHECK (episode_number > 0)"
+        boolean is_published "NOT NULL, DEFAULT false"
+        timestamptz published_at "Дата публикации в RSS"
+        timestamptz created_at "NOT NULL, DEFAULT now()"
+    }
+
+    SUBSCRIPTIONS {
+        uuid id PK "Первичный ключ"
+        uuid user_id FK "NOT NULL -> users(id)"
+        uuid podcast_id FK "NOT NULL -> podcasts(id)"
+        timestamptz subscribed_at "NOT NULL, DEFAULT now()"
+    }
+
+    LISTENING_LOGS {
+        bigint id PK "Первичный ключ (BIGSERIAL)"
+        uuid episode_id FK "NOT NULL -> episodes(id)"
+        uuid user_id FK "NULLABLE -> users(id) (для гостей NULL)"
+        int listened_seconds "NOT NULL, CHECK (listened_seconds >= 0)"
+        boolean is_completed "NOT NULL, DEFAULT false"
+        varchar(45) client_ip "IP для гео-аналитики"
+        varchar(255) user_agent "Плеер / устройство"
+        timestamptz listened_at "NOT NULL, DEFAULT now()"
+    }

@@ -1,0 +1,25 @@
+```mermaid
+C4Container
+    title Диаграмма контейнеров (C4 Level 2) — Платформа подкастов
+
+    Person(listener, "Слушатель", "Ищет и слушает подкасты, подписывается на шоу")
+    Person(creator, "Автор подкаста", "Создает подкасты, загружает аудио, смотрит статистику")
+    System_Ext(aggregators, "Подкаст-агрегаторы", "Apple Podcasts, Spotify, Яндекс Музыка (читают RSS)")
+
+    System_Boundary(podcast_system, "Podcast Hosting & Streaming Platform") {
+        Container(web_app, "Клиентское приложение", "SPA / Mobile App", "Интерфейс плеера и студия автора")
+        Container(backend_api, "Backend API Service", "REST API (Go / Python / Node.js / Java)", "Бизнес-логика, авторизация, генерация RSS, стриминг и сбор аналитики")
+        ContainerDb(postgres, "База данных", "PostgreSQL", "Хранит пользователей, подкасты, эпизоды, подписки и статистику (3NF)")
+        ContainerDb(redis, "Кэш и очереди", "Redis", "Кэширование сгенерированных RSS-лент, счётчиков и буферизация событий прослушивания")
+        ContainerDb(s3, "Объектное хранилище", "MinIO / AWS S3", "Хранение исходных аудиофайлов (.mp3, .m4a) и обложек")
+    }
+
+    Rel(listener, web_app, "Слушает подкасты, управляет подписками", "HTTPS")
+    Rel(creator, web_app, "Управляет выпусками и смотрит аналитику", "HTTPS")
+    Rel(web_app, backend_api, "Запросы к API", "JSON / HTTPS")
+    Rel(aggregators, backend_api, "Опрашивает RSS-ленту", "XML / HTTPS")
+
+    Rel(backend_api, postgres, "Чтение и запись данных", "SQL / TCP")
+    Rel(backend_api, redis, "Кэширование RSS, запись логов прослушиваний", "RESP / TCP")
+    Rel(backend_api, s3, "Загрузка аудио и выдача Presigned URLs", "S3 API / HTTPS")
+    Rel(listener, s3, "Потоковое воспроизведение аудио (Range requests)", "HTTPS")
