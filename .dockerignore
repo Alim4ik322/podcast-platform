@@ -1,0 +1,17 @@
+.git
+.gitignore
+.env
+.env.local
+node_modules/
+dist/
+build/
+bin/
+__pycache__/
+.venv/
+.idea/
+.vscode/
+.DS_Store
+docs/
+README.md
+ARCHITECTURE.md
+openapi.yaml
