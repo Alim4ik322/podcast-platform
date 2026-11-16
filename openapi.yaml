@@ -1,0 +1,804 @@
+openapi: 3.0.3
+info:
+  title: Podcast Hosting & Streaming API
+  description: >-
+    Спецификация REST API для платформы хостинга подкастов, генерации RSS-лент и
+    аналитики прослушиваний (Лабораторная работа №2, Вариант №22).
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Локальный сервер разработки (NestJS)
+
+tags:
+  - name: Auth
+    description: Регистрация и аутентификация пользователей
+  - name: Podcasts
+    description: Управление подкастами и генерация RSS-лент
+  - name: Episodes
+    description: Управление аудиоэпизодами и учет прослушиваний
+  - name: Subscriptions
+    description: Управление подписками слушателей
+
+paths:
+  /auth/register:
+    post:
+      summary: Регистрация нового пользователя
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Пользователь успешно зарегистрирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Ошибка валидации входных данных
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Пользователь с таким email уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      summary: Вход в систему и получение JWT-токена
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешная аутентификация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Неверный email или пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /podcasts:
+    get:
+      summary: Получение списка подкастов с фильтрацией
+      tags:
+        - Podcasts
+      parameters:
+        - name: category_id
+          in: query
+          description: Фильтр по ID категории
+          required: false
+          schema:
+            type: integer
+            example: 1
+        - name: search
+          in: query
+          description: Поиск по названию или описанию подкаста
+          required: false
+          schema:
+            type: string
+            example: "IT"
+      responses:
+        '200':
+          description: Список подкастов успешно получен
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PodcastResponse'
+
+    post:
+      summary: Создание нового подкаста (только для Creator / Admin)
+      tags:
+        - Podcasts
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePodcastRequest'
+      responses:
+        '201':
+          description: Подкаст успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastResponse'
+        '400':
+          description: Ошибка валидации данных
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Клиент не аутентифицирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав (требуется роль creator или admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Подкаст с таким rss_slug уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /podcasts/{id}:
+    get:
+      summary: Получение информации о подкасте по ID
+      tags:
+        - Podcasts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID подкаста
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Данные подкаста
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastResponse'
+        '404':
+          description: Подкаст не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      summary: Частичное обновление подкаста (только владелец или Admin)
+      tags:
+        - Podcasts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID подкаста
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePodcastRequest'
+      responses:
+        '200':
+          description: Подкаст успешно обновлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastResponse'
+        '400':
+          description: Ошибка валидации данных
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Нет прав на редактирование чужого подкаста
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Подкаст не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Удаление подкаста (только владелец или Admin)
+      tags:
+        - Podcasts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID подкаста
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Подкаст успешно удален
+        '403':
+          description: Недостаточно прав для удаления
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Подкаст не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /podcasts/{id}/episodes:
+    get:
+      summary: Получение списка эпизодов подкаста
+      tags:
+        - Episodes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID подкаста
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Список эпизодов подкаста
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EpisodeResponse'
+        '404':
+          description: Подкаст не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Публикация нового аудиоэпизода (только для Creator)
+      tags:
+        - Episodes
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID подкаста
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEpisodeRequest'
+      responses:
+        '201':
+          description: Эпизод успешно создан и добавлен в RSS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EpisodeResponse'
+        '400':
+          description: Ошибка валидации параметров аудиофайла
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Нет прав на добавление эпизода в этот подкаст
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /podcasts/{id}/rss:
+    get:
+      summary: Получение XML RSS-ленты эпизодов подкаста
+      tags:
+        - Podcasts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID подкаста
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Валидный XML RSS-фид для подкаст-агрегаторов
+          content:
+            application/rss+xml:
+              schema:
+                type: string
+                example: "<?xml version=\"1.0\" encoding=\"UTF-8\"?><rss version=\"2.0\"><channel><title>Tech Podcast</title></channel></rss>"
+        '404':
+          description: Подкаст не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /podcasts/{id}/stats:
+    get:
+      summary: Получение статистики прослушиваний подкаста (только для автора)
+      tags:
+        - Podcasts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID подкаста
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Агрегированная аналитика прослушиваний
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PodcastStatsResponse'
+        '403':
+          description: Доступ запрещен (не владелец подкаста)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Подкаст не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /episodes/{id}/listen:
+    post:
+      summary: Запись события прослушивания и сохранение таймкода
+      tags:
+        - Episodes
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID эпизода
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordListenRequest'
+      responses:
+        '201':
+          description: Прогресс прослушивания успешно зафиксирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListenLogResponse'
+        '400':
+          description: Некорректное значение таймкода
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Эпизод не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /subscriptions:
+    get:
+      summary: Список подписок текущего слушателя
+      tags:
+        - Subscriptions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Список активных подписок
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubscriptionResponse'
+        '401':
+          description: Требуется авторизация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Оформить подписку на подкаст
+      tags:
+        - Subscriptions
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubscriptionRequest'
+      responses:
+        '201':
+          description: Подписка успешно оформлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+        '409':
+          description: Пользователь уже подписан на данный подкаст
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /subscriptions/{id}:
+    delete:
+      summary: Отмена подписки на подкаст
+      tags:
+        - Subscriptions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID подписки
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Подписка успешно отменена
+        '404':
+          description: Подписка не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - username
+        - role
+      properties:
+        email:
+          type: string
+          format: email
+          example: "author@podcast.ru"
+        password:
+          type: string
+          minLength: 8
+          example: "StrongPass123!"
+        username:
+          type: string
+          example: "AlexPodcaster"
+        role:
+          type: string
+          enum: [listener, creator]
+          example: "creator"
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "author@podcast.ru"
+        password:
+          type: string
+          example: "StrongPass123!"
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        user_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        role:
+          type: string
+          example: "creator"
+
+    CreatePodcastRequest:
+      type: object
+      required:
+        - title
+        - category_id
+        - rss_slug
+      properties:
+        title:
+          type: string
+          example: "Архитектура и Бэкенд"
+        description:
+          type: string
+          example: "Еженедельный подкаст о разработке серверных приложений и Node.js"
+        category_id:
+          type: integer
+          example: 1
+        cover_url:
+          type: string
+          format: uri
+          example: "https://s3.podcast.local/covers/backend-show.jpg"
+        rss_slug:
+          type: string
+          example: "backend-architecture-show"
+        language:
+          type: string
+          default: "ru"
+          example: "ru"
+
+    UpdatePodcastRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          example: "Архитектура и Высокие Нагрузки"
+        description:
+          type: string
+          example: "Обновленное описание подкаста"
+        cover_url:
+          type: string
+          format: uri
+          example: "https://s3.podcast.local/covers/new-cover.jpg"
+
+    PodcastResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        author_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        category_id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "Архитектура и Бэкенд"
+        description:
+          type: string
+          example: "Еженедельный подкаст о разработке серверных приложений и Node.js"
+        cover_url:
+          type: string
+          example: "https://s3.podcast.local/covers/backend-show.jpg"
+        rss_slug:
+          type: string
+          example: "backend-architecture-show"
+        language:
+          type: string
+          example: "ru"
+        created_at:
+          type: string
+          format: date-time
+
+    CreateEpisodeRequest:
+      type: object
+      required:
+        - title
+        - audio_url
+        - duration_sec
+        - file_size_bytes
+        - episode_number
+      properties:
+        title:
+          type: string
+          example: "Выпуск #1. Проектирование REST API и OpenAPI 3.0"
+        show_notes:
+          type: string
+          example: "00:00 Вступление\n05:30 Принципы REST\n18:00 Swagger"
+        audio_url:
+          type: string
+          format: uri
+          example: "https://s3.podcast.local/audio/ep1-rest-api.mp3"
+        duration_sec:
+          type: integer
+          minimum: 1
+          example: 1845
+        file_size_bytes:
+          type: integer
+          minimum: 1
+          example: 29520000
+        episode_number:
+          type: integer
+          minimum: 1
+          example: 1
+        is_published:
+          type: boolean
+          default: true
+          example: true
+
+    EpisodeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "987e6543-e21b-12d3-a456-426614174999"
+        podcast_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        title:
+          type: string
+          example: "Выпуск #1. Проектирование REST API и OpenAPI 3.0"
+        show_notes:
+          type: string
+          example: "00:00 Вступление\n05:30 Принципы REST"
+        audio_url:
+          type: string
+          example: "https://s3.podcast.local/audio/ep1-rest-api.mp3"
+        duration_sec:
+          type: integer
+          example: 1845
+        file_size_bytes:
+          type: integer
+          example: 29520000
+        episode_number:
+          type: integer
+          example: 1
+        is_published:
+          type: boolean
+          example: true
+        published_at:
+          type: string
+          format: date-time
+
+    RecordListenRequest:
+      type: object
+      required:
+        - listened_seconds
+        - is_completed
+      properties:
+        listened_seconds:
+          type: integer
+          minimum: 0
+          example: 1200
+        is_completed:
+          type: boolean
+          example: false
+
+    ListenLogResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10542
+        episode_id:
+          type: string
+          format: uuid
+          example: "987e6543-e21b-12d3-a456-426614174999"
+        listened_seconds:
+          type: integer
+          example: 1200
+        is_completed:
+          type: boolean
+          example: false
+        listened_at:
+          type: string
+          format: date-time
+
+    PodcastStatsResponse:
+      type: object
+      properties:
+        podcast_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        total_listens:
+          type: integer
+          example: 15420
+        unique_listeners:
+          type: integer
+          example: 8310
+        completion_rate_percent:
+          type: number
+          format: float
+          example: 76.5
+
+    CreateSubscriptionRequest:
+      type: object
+      required:
+        - podcast_id
+      properties:
+        podcast_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+
+    SubscriptionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "444e4567-e89b-12d3-a456-426614174111"
+        user_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        podcast_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        subscribed_at:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "INVALID_INPUT"
+        message:
+          type: string
+          example: "Поле duration_sec должно быть больше нуля"
+        timestamp:
+          type: string
+          format: date-time

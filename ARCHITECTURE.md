@@ -230,3 +230,24 @@ erDiagram
   * `idx_podcasts_category_id` на `podcasts(category_id)`
   * `idx_episodes_podcast_pub` на `episodes(podcast_id, is_published, published_at DESC)` — ускоряет генерацию RSS-ленты и выборку опубликованных эпизодов.
   * `idx_listening_logs_episode_date` на `listening_logs(episode_id, listened_at)` — ускоряет построение отчетов аналитики для автора.
+---
+
+## 7. Спецификация REST API (REST API Specs)
+
+Полная спецификация в формате OpenAPI 3.0.3 находится в файле **[openapi.yaml](./openapi.yaml)**.
+
+| Метод | URI | Описание | Доступ (роль) | Ожидаемый код |
+|---|---|---|---|---|
+| POST | `/api/v1/auth/register` | Регистрация пользователя | Все | `201 Created` |
+| POST | `/api/v1/auth/login` | Вход и выдача JWT | Все | `200 OK` |
+| GET | `/api/v1/podcasts` | Список и поиск подкастов | Все | `200 OK` |
+| POST | `/api/v1/podcasts` | Создать новый подкаст | Автор / Админ | `201 Created` |
+| GET | `/api/v1/podcasts/{id}` | Детали подкаста | Все | `200 OK` |
+| PATCH | `/api/v1/podcasts/{id}` | Обновить описание подкаста | Владелец / Админ | `200 OK` |
+| DELETE | `/api/v1/podcasts/{id}` | Удалить подкаст | Владелец / Админ | `204 No Content` |
+| POST | `/api/v1/podcasts/{id}/episodes` | Загрузить новый эпизод | Владелец (Автор) | `201 Created` |
+| GET | `/api/v1/podcasts/{id}/rss` | RSS-лента эпизодов (XML) | Все / Агрегаторы | `200 OK` |
+| POST | `/api/v1/episodes/{id}/listen` | Записать прогресс и лог | Слушатель / Все | `201 Created` |
+| GET | `/api/v1/podcasts/{id}/stats` | Статистика прослушиваний | Владелец / Админ | `200 OK` |
+| POST | `/api/v1/subscriptions` | Подписаться на подкаст | Слушатель | `201 Created` |
+| DELETE | `/api/v1/subscriptions/{id}` | Отменить подписку | Владелец подписки | `204 No Content` |
