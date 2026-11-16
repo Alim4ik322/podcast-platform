@@ -251,3 +251,32 @@ erDiagram
 | GET | `/api/v1/podcasts/{id}/stats` | Статистика прослушиваний | Владелец / Админ | `200 OK` |
 | POST | `/api/v1/subscriptions` | Подписаться на подкаст | Слушатель | `201 Created` |
 | DELETE | `/api/v1/subscriptions/{id}` | Отменить подписку | Владелец подписки | `204 No Content` |
+---
+
+## 8. Реализация базового каркаса (Лабораторная работа №3)
+
+### 1. Организация структуры каталогов (Layered Architecture)
+Исходный код серверного приложения организован по принципам слоистой архитектуры (Separation of Concerns):
+- `cmd/app/` — точка входа в приложение (`index.ts`), инициализация DI-контейнера и запуск HTTP-сервера.
+- `internal/config/` — модуль загрузки конфигурации и переменных окружения из файла `.env`.
+- `internal/controller/` — слой представления (Transport / HTTP Handlers), принимающий запросы (`GET /api/v1/health`).
+- `internal/service/` — слой бизнес-логики (Business Logic Layer), обрабатывающий сценарии работы.
+- `internal/repository/` — слой работы с данными (Data Access Layer) и системными метриками.
+
+### 2. Конфигурация окружения
+- Конфигурационные параметры вынесены в файл `.env`, который исключен из системы контроля версий через `.gitignore`.
+- В репозиторий добавлен шаблон безопасных настроек **`.env.example`**.
+
+### 3. Реализация Health-check эндпоинта
+- **Метод и URI:** `GET /api/v1/health`
+- **Код ответа:** `200 OK`
+- **Формат ответа (JSON):**
+  ```json
+  {
+    "status": "pass",
+    "app_name": "Podcast Hosting & Streaming API",
+    "version": "1.0.0",
+    "environment": "development",
+    "uptime_seconds": 45,
+    "timestamp": "2026-11-16T12:00:00.000Z"
+  }
