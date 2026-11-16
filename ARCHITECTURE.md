@@ -280,3 +280,17 @@ erDiagram
     "uptime_seconds": 45,
     "timestamp": "2026-11-16T12:00:00.000Z"
   }
+## 9. Контейнеризация приложения (Лабораторная работа №4)
+
+### 1. Оптимизация контекста сборки (`.dockerignore`)
+В корень проекта добавлен файл `.dockerignore`, исключающий локальные зависимости (`node_modules/`), артефакты сборки (`dist/`), файлы окружения (`.env`), историю Git (`.git`) и документацию из контекста сборки Docker-образа.
+
+### 2. Многоэтапная сборка (`Dockerfile`)
+Для минимизации размера итогового образа и повышения безопасности применен подход **Multi-stage build** на базе легковесного образа `node:20-alpine`:
+1. **Этап `builder`:** копирует `package*.json`, устанавливает все зависимости (`npm ci`), копирует исходный код TypeScript (`cmd/`, `internal/`) и компилирует его в JavaScript (`npm run build` -> `./dist`).
+2. **Финальный этап (`runner`):** использует чистый образ `node:20-alpine`, устанавливает только production-зависимости (`npm ci --only=production`) и копирует скомпилированные файлы из этапа `builder`. Исходный код `.ts` и компилятор TypeScript в финальный образ не попадают.
+
+### 3. Сборка и запуск контейнера
+- **Сборка образа:** `docker build -t podcast-platform-api:latest .`
+- **Запуск контейнера:** `docker run --name podcast-api-container -d -p 3000:3000 -e HTTP_PORT=3000 podcast-platform-api:latest`
+- **Проверка работоспособности:** `GET http://localhost:3000/api/v1/health` (`200 OK`).
