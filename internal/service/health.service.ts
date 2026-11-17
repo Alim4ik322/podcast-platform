@@ -9,16 +9,36 @@ export class HealthService {
     private readonly healthRepository: HealthRepository,
   ) {}
 
-  checkHealth() {
+  async checkHealth() {
+    const isDbUp = await this.healthRepository.checkDatabase();
     const metrics = this.healthRepository.getSystemMetrics();
 
+    if (!isDbUp) {
+      return {
+        ok: false,
+        body: {
+          status: 'unavailable',
+          db: 'down',
+          app_name: this.configService.appName,
+          version: this.configService.appVersion,
+          environment: this.configService.appEnv,
+          uptime_seconds: metrics.uptimeSeconds,
+          timestamp: metrics.timestamp,
+        },
+      };
+    }
+
     return {
-      status: 'pass',
-      app_name: this.configService.appName,
-      version: this.configService.appVersion,
-      environment: this.configService.appEnv,
-      uptime_seconds: metrics.uptimeSeconds,
-      timestamp: metrics.timestamp,
+      ok: true,
+      body: {
+        status: 'ok',
+        db: 'up',
+        app_name: this.configService.appName,
+        version: this.configService.appVersion,
+        environment: this.configService.appEnv,
+        uptime_seconds: metrics.uptimeSeconds,
+        timestamp: metrics.timestamp,
+      },
     };
   }
 }
