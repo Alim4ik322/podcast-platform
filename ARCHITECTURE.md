@@ -294,3 +294,27 @@ erDiagram
 - **Сборка образа:** `docker build -t podcast-platform-api:latest .`
 - **Запуск контейнера:** `docker run --name podcast-api-container -d -p 3000:3000 -e HTTP_PORT=3000 podcast-platform-api:latest`
 - **Проверка работоспособности:** `GET http://localhost:3000/api/v1/health` (`200 OK`).
+
+---
+
+## 10. Интеграция с PostgreSQL, миграции и Docker Compose (Лабораторная работа №5)
+
+### 1. Версионируемые SQL-миграции (`migrations/`)
+На основе ER-диаграммы из 3NF созданы миграции для инструмента `golang-migrate` (`migrate/migrate:v4.18.1`):
+- `migrations/000001_init_schema.up.sql` — создание таблиц `users`, `categories`, `podcasts`, `episodes`, `subscriptions` и `listening_logs` с ограничениями целостности (`PRIMARY KEY`, `FOREIGN KEY` с правилами `ON DELETE CASCADE`, `RESTRICT`, `SET NULL`, `NOT NULL`, `UNIQUE`, `CHECK`) и индексами на внешних ключах и часто запрашиваемых полях.
+- `migrations/000001_init_schema.down.sql` — откат схемы базы данных с удалением таблиц в порядке, обратном созданию.
+
+### 2. Конфигурация и безопасность переменных окружения
+- Параметры подключения к СУБД (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_MAX_CONNS`) и настройки портов (`DB_HOST_PORT=5433`, `HTTP_PORT=3000`) считываются из переменных окружения.
+- Модуль конфигурации проверяет наличие обязательных параметров при старте и завершает работу с понятным сообщением об ошибке при отсутствии необходимых переменных.
+- Файл `.env` исключён из Git через `.gitignore`, а в репозитории хранится шаблон `.env.example`.
+
+### 3. Оркестрация сервисов (`docker-compose.yml`)
+Инфраструктура описана в `docker-compose.yml` и включает три сервиса в общей сети:
+- `db` (`postgres:16-alpine`) — база данных с именованным томом `pgdata` (`/var/lib/postgresql/data`) для сохранения данных между перезапусками и проверкой готовности `healthcheck` (`pg_isready`).
+- `migrate` (`migrate/migrate:v4.18.1`) — контейнер применения миграций, запускающийся после перехода `db` в состояние `service_healthy`.
+- `app` — контейнер серверного приложения, стартующий после успешного завершения миграций (`service_completed_successfully`).
+
+### 4. Пул соединений и проверка доступности БД (`/health`)
+- Подключение к PostgreSQL реализовано через пул соединений (`pg.Pool`) с ограничением максимального числа подключений (`DB_MAX_CONNS`) и механизмом повторных попыток (`retry`) при старте приложения.
+- Эндпоинт `GET /health` (и `GET /api/v1/health`) проверяет состояние соединения с базой данных: возвращает `200 OK` (`{"status":"ok","db":"up",...}`) при доступной БД и `503 Service Unavailable` (`{"status":"unavailable","db":"down",...}`) при недоступной СУБД.
